@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ProjectARTEMIS/ProjectARTEMIS.Client/ProjectARTEMIS.Client.csproj" />
+  <Project Path="ProjectARTEMIS/ProjectARTEMIS/ProjectARTEMIS.csproj" />
+</Solution>
