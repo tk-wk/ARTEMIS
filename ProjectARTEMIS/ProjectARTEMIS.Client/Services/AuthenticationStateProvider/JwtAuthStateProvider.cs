@@ -18,6 +18,7 @@ public class JwtAuthStateProvider : AuthenticationStateProvider
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
         var token = await _localStorage.GetRawAsync("token");
+        Console.WriteLine($"[JWT] Token retrieved: {(string.IsNullOrWhiteSpace(token) ? "NULL" : token[..20] + "...")}");
 
         if (string.IsNullOrWhiteSpace(token))
             return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
@@ -35,8 +36,9 @@ public class JwtAuthStateProvider : AuthenticationStateProvider
         await _localStorage.SetRawAsync("token", token);
         var claims = ParseClaimsFromJwt(token);
         var identity = new ClaimsIdentity(claims, "jwt");
-        NotifyAuthenticationStateChanged(
-            Task.FromResult(new AuthenticationState(new ClaimsPrincipal(identity))));
+        var authState = Task.FromResult(new AuthenticationState(new ClaimsPrincipal(identity)));
+        NotifyAuthenticationStateChanged(authState);
+        await authState;
     }
 
     public async Task MarkUserAsLoggedOut()
@@ -51,7 +53,17 @@ public class JwtAuthStateProvider : AuthenticationStateProvider
         var payload = token.Split('.')[1];
         var json = Encoding.UTF8.GetString(Convert.FromBase64String(
             payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=')));
-        return JsonSerializer.Deserialize<Dictionary<string, object>>(json)!
-            .Select(kvp => new Claim(kvp.Key, kvp.Value.ToString()!));
+
+        var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(json)!;
+
+        return dict.Select(kvp => new Claim(MapClaimType(kvp.Key), kvp.Value.ToString()!));
     }
+
+    private static string MapClaimType(string key) => key switch
+    {
+        "nameid" => ClaimTypes.NameIdentifier,
+        "unique_name" => ClaimTypes.Name,
+        "role" => ClaimTypes.Role,
+        _ => key
+    };
 }
