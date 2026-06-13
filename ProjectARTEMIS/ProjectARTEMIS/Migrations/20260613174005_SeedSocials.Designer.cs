@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ProjectARTEMIS.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using ProjectARTEMIS.Infrastructure.Persistence;
 namespace ProjectARTEMIS.Migrations
 {
     [DbContext(typeof(MyDbContext))]
-    partial class MyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260613174005_SeedSocials")]
+    partial class SeedSocials
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -65,15 +68,15 @@ namespace ProjectARTEMIS.Migrations
                     b.Property<string>("Bio")
                         .HasColumnType("text");
 
+                    b.Property<string>("InGameName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Note")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ProfilePicturePath")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("RealName")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -92,9 +95,9 @@ namespace ProjectARTEMIS.Migrations
                         {
                             Id = new Guid("b2265d2e-9ff4-50ed-9b82-7d3417e9828d"),
                             Bio = "Project ARTEMIS Head System Administrator.",
+                            InGameName = "Spinelly",
                             Note = "",
                             ProfilePicturePath = "",
-                            RealName = "Alex Sam Cabildo",
                             SchoolId = new Guid("44444444-4444-4444-4444-444444444444"),
                             UserId = new Guid("a1154c1d-8ee3-49dc-8a71-6c2306d8717c")
                         });

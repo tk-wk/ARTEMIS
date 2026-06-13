@@ -4,7 +4,7 @@
 @inject NavigationManager Nav
 
 <PageTitle>Whitelist Requests</PageTitle>
-<div style="padding-top: 4px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+<div style="margin-top: 15px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
     <MudText Typo="Typo.h5" Style="color: #CECBF6;">Whitelist Requests</MudText>
 
     <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
@@ -18,8 +18,8 @@
                 <MudChip T="string" Size="Size.Small" Style="background:#33290a; color:#ffb545; margin-left:4px; height:18px;">@PendingCount</MudChip>
             }
         </MudButton>
-        <MudButton OnClick='() => SetFilter("Approved")'
-                   Style="@TabStyle("Approved")">Approved</MudButton>
+        <MudButton OnClick='() => SetFilter("Accepted")'
+                   Style="@TabStyle("Accepted")">Accepted</MudButton>
         <MudButton OnClick='() => SetFilter("Rejected")'
                    Style="@TabStyle("Rejected")">Rejected</MudButton>
     </MudButtonGroup>
@@ -37,7 +37,7 @@ else
                   OnRowClick="@((TableRowClickEventArgs<WhitelistApplicationDto> row) => Nav.NavigateTo($"/admin/whitelist-requests/{row.Item.Id}"))">
             <HeaderContent>
                 <MudTh>Username</MudTh>
-                <MudTh>Real name</MudTh>
+                <MudTh>Full Name</MudTh>
                 <MudTh>School</MudTh>
                 <MudTh>Status</MudTh>
                 <MudTh></MudTh>
@@ -94,7 +94,7 @@ else
 
     private string GetPillStyle(string status) => status switch
     {
-        "Approved" => "background: #0d2e1a; color: #3dcb6c;",
+        "Accepted" => "background: #0d2e1a; color: #3dcb6c;",
         "Pending"  => "background: #33290a; color: #ffb545;",
         "Rejected" => "background: #2e0d0d; color: #ff3f5f;",
         _ => ""

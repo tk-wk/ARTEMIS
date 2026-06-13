@@ -1,3 +1,523 @@
 @page "/me"
+@inject HttpClient Http
+@inject JwtAuthStateProvider AuthProvider
+@inject ISnackbar Snackbar
 
-<MudText>Hello!</MudText>
+<PageTitle>My Profile</PageTitle>
+
+@if (profile is null)
+{
+    <div style="max-width: 960px;" class="mx-auto pa-4">
+        <MudSkeleton Animation="Animation.Pulse" Height="180px" Class="mb-4" Style="border-radius: 20px;" />
+        <MudGrid>
+            <MudItem xs="12" md="8">
+                <MudSkeleton Animation="Animation.Pulse" Height="260px" Style="border-radius: 16px;" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSkeleton Animation="Animation.Pulse" Height="260px" Style="border-radius: 16px;" />
+            </MudItem>
+        </MudGrid>
+    </div>
+}
+else
+{
+    <div style="max-width: 960px;" class="mx-auto pa-4">
+
+        @* ===================== COVER / IDENTITY BANNER ===================== *@
+        <div class="cover-banner">
+            <div class="cover-glow"></div>
+
+            <div class="banner-content">
+                @* Avatar + upload *@
+                <MudFileUpload T="IBrowserFile" OnFilesChanged="OnFileSelected" Accept=".jpg,.jpeg,.png,.webp" Disabled="uploadingAvatar">
+                    <CustomContent>
+                        <div class="avatar-container" @onclick="@context.OpenFilePickerAsync">
+
+                            <div class="status-dot" style="@($"background-color: {GetOnlineStatusColor(profile.OnlineStatus)};")" title="@profile.OnlineStatus"></div>
+
+                            @if (!string.IsNullOrWhiteSpace(profile.ProfilePicturePath))
+                            {
+                                <MudAvatar Style="width: 96px; height: 96px; border-radius: 18px; border: 3px solid #1e1e2d; box-shadow: 0 6px 20px rgba(0,0,0,0.35);">
+                                    <MudImage Src="@ResolveImageUrl(profile.ProfilePicturePath)" ObjectFit="ObjectFit.Cover" Style="width: 100%; height: 100%;" />
+                                </MudAvatar>
+                            }
+                            else
+                            {
+                                <MudAvatar Style="width: 96px; height: 96px; border-radius: 18px; background: linear-gradient(135deg, #534AB7, #7C6FE0); color: #ECE9FF; font-size: 38px; font-weight: 700; border: 3px solid #1e1e2d; box-shadow: 0 6px 20px rgba(0,0,0,0.35);">
+                                    @(!string.IsNullOrEmpty(profile.Username) ? profile.Username[0].ToString().ToUpper() : "?")
+                                </MudAvatar>
+                            }
+
+                            @if (uploadingAvatar)
+                            {
+                                <div class="avatar-loading-overlay">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Default" />
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="avatar-overlay">
+                                    <MudIcon Icon="@Icons.Material.Outlined.CameraAlt" Style="color: white; font-size: 22px;" />
+                                </div>
+                            }
+                        </div>
+                    </CustomContent>
+                </MudFileUpload>
+
+                @* Name + chips *@
+                <div class="identity-block">
+                    <div class="identity-top">
+                        <MudText Typo="Typo.h4" Style="color: #ECE9FF; font-weight: 800; letter-spacing: -0.5px;">@profile.Username</MudText>
+
+                        @if (!string.IsNullOrWhiteSpace(profile.School?.Name))
+                        {
+                            <MudChip T="string" Size="Size.Small"
+                                     Style="@($"background: rgba(83, 74, 183, 0.18); color: {profile.School.ColorCode ?? "#AFA9EC"}; border: 1px solid rgba(83, 74, 183, 0.35); font-weight: 600;")">
+                                @profile.School.Name
+                            </MudChip>
+                        }
+
+                        <MudChip T="string" Size="Size.Small"
+                                 Style="@($"background: {GetStatusColor(profile.Status)}1A; color: {GetStatusColor(profile.Status)}; border: 1px solid {GetStatusColor(profile.Status)}40; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;")">
+                            @profile.Status
+                        </MudChip>
+                    </div>
+
+                    <MudText Typo="Typo.body1" Style="color: #8d89ab; font-weight: 500;">
+                        @profile.Realname
+                    </MudText>
+
+                    <div class="online-pill">
+                        <span class="online-dot" style="@($"background-color: {GetOnlineStatusColor(profile.OnlineStatus)};")"></span>
+                        <MudText Typo="Typo.caption" Style="color: #8d89ab; font-weight: 600; text-transform: capitalize;">
+                            @(string.IsNullOrWhiteSpace(profile.OnlineStatus) ? "Offline" : profile.OnlineStatus)
+                        </MudText>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ===================== MAIN GRID ===================== *@
+        <MudGrid Spacing="4" Class="mt-4">
+
+            @* ----- LEFT COLUMN: Bio + Socials ----- *@
+            <MudItem xs="12" md="7">
+
+                @* BIO CARD *@
+                <MudPaper Outlined Style="border-radius: 16px; border: 1px solid #2a2840; background: #1e1e2d;" Class="pa-5 mb-4">
+                    <div style="display: flex; justify-content: space-between; align-items: center;" class="mb-2">
+                        <MudText Typo="Typo.subtitle2" Style="color: #74718e; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">About Me</MudText>
+                        @if (!editingBio)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Style="color: #74718e;" OnClick="@(() => { editingBio = true; bioEdit = profile.Bio; })" />
+                        }
+                    </div>
+
+                    @if (editingBio)
+                    {
+                        <MudTextField @bind-Value="bioEdit"
+                                      Lines="3"
+                                      Variant="Variant.Outlined"
+                                      Counter="280"
+                                      MaxLength="280"
+                                      Placeholder="Share your details, roles, or setups..."
+                                      Style="background: #151522; color: #CECBF6;"
+                                      Class="mb-3" />
+                        <div style="display: flex; gap: 8px;">
+                            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                       OnClick="SaveBio"
+                                       Disabled="@(savingBio || bioEdit == profile.Bio)"
+                                       Style="border-radius: 8px; font-weight: 600;">
+                                @if (savingBio)
+                                {
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
+                                }
+                                @(savingBio ? "Saving..." : "Save Changes")
+                            </MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Style="color: #74718e; font-weight: 600;"
+                                       Disabled="savingBio"
+                                       OnClick="@(() => { editingBio = false; bioEdit = profile.Bio; })">
+                                Cancel
+                            </MudButton>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Style="color: #AFA9EC; line-height: 1.6; background: #151522; padding: 14px 18px; border-radius: 12px; border: 1px solid #2a2840;">
+                            @(string.IsNullOrWhiteSpace(profile.Bio) ? "No bio yet — click the pencil to write something about yourself." : profile.Bio)
+                        </MudText>
+                    }
+                </MudPaper>
+
+                @* SOCIALS CARD *@
+                <MudPaper Outlined Style="border-radius: 16px; background: #1e1e2d; border: 1px solid #2a2840;" Class="pa-5">
+                    <MudText Typo="Typo.subtitle2" Style="color: #74718e; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;" Class="mb-3">Connected Handles</MudText>
+
+                    @if (profile.Socials?.Any() == true)
+                    {
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            @foreach (var social in profile.Socials)
+                            {
+                                <MudButton Href="@social.Link"
+                                           Target="_blank"
+                                           Variant="Variant.Outlined"
+                                           Size="Size.Medium"
+                                           StartIcon="@GetSocialIcon(social.SocialName)"
+                                           UserAttributes="@(new Dictionary<string, object> { { "rel", "noopener noreferrer" } })"
+                                           Style="border-color: #2a2840; background: #151522; color: #CECBF6; border-radius: 10px; text-transform: none; font-size: 13px;">
+                                    @social.SocialName
+                                </MudButton>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="text-align: center; padding: 2.5rem 0; border: 2px dashed #2a2840; border-radius: 12px; background: #151522;">
+                            <MudIcon Icon="@Icons.Material.Outlined.LinkOff" Style="color: #4e4b66; font-size: 40px;" Class="mb-2" />
+                            <MudText Typo="Typo.body2" Style="color: #74718e;">No external links linked to this profile yet.</MudText>
+                        </div>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            @* ----- RIGHT COLUMN: Account details ----- *@
+            <MudItem xs="12" md="5">
+                <MudPaper Outlined Style="border-radius: 16px; background: #1e1e2d; border: 1px solid #2a2840;" Class="pa-5">
+                    <MudText Typo="Typo.subtitle2" Style="color: #74718e; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;" Class="mb-4">Account Details</MudText>
+
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+
+                        <div class="info-row">
+                            <MudText Typo="Typo.body2" Style="color: #74718e;">Real Name</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #CECBF6; font-weight: 600;">@profile.Realname</MudText>
+                        </div>
+
+                        <div class="info-row">
+                            <MudText Typo="Typo.body2" Style="color: #74718e;">School</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #CECBF6; font-weight: 600;">@(profile.School?.Name ?? "Unassigned")</MudText>
+                        </div>
+
+                        <div class="info-row">
+                            <MudText Typo="Typo.body2" Style="color: #74718e;">Whitelist Status</MudText>
+                            <MudText Typo="Typo.body2" Style="@($"color: {GetStatusColor(profile.Status)}; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px;")">
+                                @profile.Status
+                            </MudText>
+                        </div>
+
+                        <div class="info-row">
+                            <MudText Typo="Typo.body2" Style="color: #74718e;">Presence</MudText>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span class="online-dot" style="@($"background-color: {GetOnlineStatusColor(profile.OnlineStatus)};")"></span>
+                                <MudText Typo="Typo.body2" Style="color: #CECBF6; font-weight: 600; text-transform: capitalize;">
+                                    @(string.IsNullOrWhiteSpace(profile.OnlineStatus) ? "Offline" : profile.OnlineStatus)
+                                </MudText>
+                            </div>
+                        </div>
+
+                    </div>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </div>
+}
+
+<style>
+    /* ---- Cover banner ---- */
+    .cover-banner {
+        position: relative;
+        border-radius: 20px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #2c2750 0%, #1e1e2d 60%);
+        border: 1px solid #2a2840;
+        padding: 28px;
+    }
+
+    .cover-glow {
+        position: absolute;
+        top: -60px;
+        right: -60px;
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle, rgba(124, 111, 224, 0.35), transparent 70%);
+        filter: blur(10px);
+        pointer-events: none;
+    }
+
+    .banner-content {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        z-index: 1;
+    }
+
+    /* ---- Avatar ---- */
+    .avatar-container {
+        position: relative;
+        width: 96px;
+        height: 96px;
+        cursor: pointer;
+        border-radius: 18px;
+    }
+
+    .avatar-overlay,
+    .avatar-loading-overlay {
+        position: absolute;
+        inset: 0;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+    }
+
+    .avatar-overlay {
+        background: rgba(18, 18, 26, 0.65);
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+        backdrop-filter: blur(2px);
+    }
+
+    .avatar-container:hover .avatar-overlay {
+        opacity: 1;
+    }
+
+    .avatar-loading-overlay {
+        background: rgba(18, 18, 26, 0.75);
+        backdrop-filter: blur(2px);
+    }
+
+    .status-dot {
+        position: absolute;
+        bottom: -3px;
+        right: -3px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 3px solid #1e1e2d;
+        z-index: 3;
+    }
+
+    /* ---- Identity block ---- */
+    .identity-block {
+        flex: 1;
+        min-width: 200px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .identity-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .online-pill {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+    }
+
+    .online-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    /* ---- Info rows ---- */
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: #151522;
+        border-radius: 10px;
+        border: 1px solid #2a2840;
+    }
+</style>
+
+@code {
+    private const long MaxAvatarBytes = 5 * 1024 * 1024; // 5 MB
+
+    private PlayerProfileDto? profile;
+    private bool editingBio = false;
+    private bool savingBio = false;
+    private bool uploadingAvatar = false;
+    private string? bioEdit;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var username = authState.User.Identity?.Name;
+
+        if (string.IsNullOrEmpty(username)) return;
+
+        try
+        {
+            profile = await Http.GetFromJsonAsync<PlayerProfileDto>($"/api/v1/players/{username}");
+            bioEdit = profile?.Bio;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Could not load your profile. Please try again later.", Severity.Error);
+        }
+    }
+
+    private string ResolveImageUrl(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return string.Empty;
+
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return path;
+        }
+
+        var baseAddress = Http.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
+        var relative = path.StartsWith('/') ? path : $"/{path}";
+        return $"{baseAddress}{relative}";
+    }
+
+    private async Task SaveBio()
+    {
+        if (profile is null) return;
+        savingBio = true;
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync("/api/v1/players/details", new UpdatePlayerProfileRequest
+            {
+                Id = profile.Id,
+                Bio = bioEdit ?? string.Empty
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                profile = profile with { Bio = bioEdit };
+                editingBio = false;
+                Snackbar.Add("Bio updated.", Severity.Success);
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                Snackbar.Add("You don't have permission to edit this profile.", Severity.Error);
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                Snackbar.Add("Profile not found.", Severity.Error);
+            }
+            else
+            {
+                Snackbar.Add("Could not save your bio. Please try again.", Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Network error while saving your bio.", Severity.Error);
+        }
+        finally
+        {
+            savingBio = false;
+        }
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        if (profile is null) return;
+
+        var file = e.File;
+        if (file == null) return;
+
+        if (file.Size > MaxAvatarBytes)
+        {
+            Snackbar.Add("That image is too large. Please choose a file under 5 MB.", Severity.Warning);
+            return;
+        }
+
+        uploadingAvatar = true;
+
+        try
+        {
+                using var content = new MultipartFormDataContent();
+
+                var stream = file.OpenReadStream(MaxAvatarBytes);
+                using var fileContent = new StreamContent(stream);
+                fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                    string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
+                content.Add(fileContent, "profilePicture", file.Name);
+
+            var response = await Http.PostAsync("/api/v1/players/upload-picture", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<UploadResult>();
+                if (result is not null)
+                {
+                    profile = profile with { ProfilePicturePath = result.Path };
+                    Snackbar.Add("Profile picture updated.", Severity.Success);
+                }
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                Snackbar.Add("You don't have permission to update this profile picture.", Severity.Error);
+            }
+            else
+            {
+                var message = await TryReadErrorMessage(response);
+                Snackbar.Add(message ?? "Upload was rejected by the server.", Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Something went wrong while uploading your picture.", Severity.Error);
+        }
+        finally
+        {
+            uploadingAvatar = false;
+        }
+    }
+
+    private static async Task<string?> TryReadErrorMessage(HttpResponseMessage response)
+    {
+        try
+        {
+            var json = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return json != null && json.TryGetValue("Message", out var msg) ? msg : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string GetStatusColor(string? status) => status switch
+    {
+        "Whitelisted" or "Accepted" or "Active" => "#3dcb6c",
+        "Pending" => "#ffb545",
+        "Rejected" or "Banned" => "#ff3f5f",
+        _ => "#74718e"
+    };
+
+    private string GetOnlineStatusColor(string? onlineStatus) => onlineStatus?.ToLower() switch
+    {
+        "online" => "#3dcb6c",
+        "idle" or "away" => "#ffb545",
+        "dnd" or "donotdisturb" => "#ff3f5f",
+        _ => "#74718e" // Offline / Invisible
+    };
+
+    private string GetSocialIcon(string? socialName) => socialName?.ToLower() switch
+    {
+        "facebook" => Icons.Custom.Brands.Facebook,
+        "discord" => Icons.Custom.Brands.Discord,
+        "twitter" or "x" => Icons.Custom.Brands.Twitter,
+        "instagram" => Icons.Custom.Brands.Instagram,
+        "youtube" => Icons.Custom.Brands.YouTube,
+        "tiktok" => Icons.Custom.Brands.TikTok,
+        _ => Icons.Material.Outlined.Link
+    };
+}

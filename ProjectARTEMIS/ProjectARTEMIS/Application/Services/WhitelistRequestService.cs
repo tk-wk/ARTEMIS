@@ -1,5 +1,6 @@
 ﻿
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 public class WhitelistRequestService
 {
@@ -17,18 +18,51 @@ public class WhitelistRequestService
 
     public async Task AcceptWhitelistRequestAsync(AcceptWhitelistRequestDto req)
     {
-        var request = await _uow.WhitelistRequests.GetById(req.WhitelistRequestId);
-        if (request == null) throw new ApplicationException("Request doens't exist!");
-        request.Accept();
-        _uow.WhitelistRequests.Update(request);
-        await _uow.SaveChangesAsync();
+        await _uow.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+
+        try
+        {
+            var request = await _uow.WhitelistRequests.GetById(req.WhitelistRequestId);
+            if (request == null) throw new ApplicationException("Request doesn't exist!");
+
+            request.Accept();
+
+            var user = await _uow.Users.GetById(request.UserId);
+            if (user == null) throw new ApplicationException("User doesn't exist!");
+
+            var profile = PlayerProfile.Create(
+                request.UserId,
+                request.SchoolId,
+                request.RealName,
+                "Hello, Project Artemis! :)"
+            );
+
+            profile.GoOffline();
+            profile.Activate();
+
+            var facebook = await _uow.SocialMedia.GetAll()
+                .FirstOrDefaultAsync(x => x.Name == "Facebook");
+
+            profile.AddSocialLink(facebook.Id, request.FacebookUrl);
+
+            _uow.PlayerProfiles.Add(profile);
+
+            await _uow.SaveChangesAsync();
+
+            await _uow.CommitAsync();
+        }
+        catch
+        {
+            await _uow.RollbackAsync();
+            throw;
+        }
     }
+
     public async Task RejectWhitelistRequestAsync(AcceptWhitelistRequestDto req)
     {
         var request = await _uow.WhitelistRequests.GetById(req.WhitelistRequestId);
         if (request == null) throw new ApplicationException("Request doens't exist!");
         request.Reject();
-        _uow.WhitelistRequests.Update(request);
         await _uow.SaveChangesAsync();
     }
     public async Task<List<WhitelistApplicationDto>> GetAllWhitelistRequestsAsync()
@@ -36,7 +70,7 @@ public class WhitelistRequestService
         var requests = _uow.WhitelistRequests.GetAll();
 
         return await (from r in requests
-                join u in _uow.Users.GetAll() on r.Id equals u.Id
+                join u in _uow.Users.GetAll() on r.UserId equals u.Id
                 join s in _uow.Schools.GetAll() on r.SchoolId equals s.Id
                 select new WhitelistApplicationDto
                 {
@@ -63,6 +97,7 @@ public class WhitelistRequestService
                         RealName = r.RealName,
                         School = s.Name,
                         Username = u.Username,
+                        Status = r.CurrentStatus.Status.ToString()
                     };
 
         return await query.FirstOrDefaultAsync();

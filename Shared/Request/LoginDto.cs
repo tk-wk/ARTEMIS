@@ -27,3 +27,39 @@ public record AcceptWhitelistRequestDto
 {
     public Guid WhitelistRequestId { get; set; }
 }
+
+public record DashboardDto
+{
+    public string Status { get; set; } = string.Empty;
+    public DateTime TimeToday { get; set; }
+}
+
+public record UpdatePlayerProfileRequest
+{
+    public Guid Id { get; set; }
+    public string Bio { get; set; }
+}
+public record UploadNewProfilePictureRequest
+{
+    public Guid Id { get; set; }
+    public string ProfilePicturePath { get; set; } = string.Empty;
+}
+public record SocialDto
+{
+    public string SocialName { get; set; }
+    public string Link { get; set; }
+}
+
+public record PlayerProfileDto
+{
+    public Guid Id { get; init; }
+    public string Username { get; init; } = string.Empty;
+    public string Realname { get; init; } = string.Empty;
+    public string? Bio { get; init; }
+    public string Status { get; init; } = string.Empty;
+    public string? ProfilePicturePath { get; init; }
+    public string OnlineStatus { get; init; } = string.Empty;
+    public SchoolDto? School { get; init; }
+    public List<SocialDto> Socials { get; init; } = new();
+}
+    public record UploadResult(string Message, string Path);

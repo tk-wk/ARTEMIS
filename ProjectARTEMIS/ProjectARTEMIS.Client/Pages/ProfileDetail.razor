@@ -1,132 +1,173 @@
-﻿@page "/profile/Spinelly"
+﻿@page "/profile/{Username}"
 @inject HttpClient Http
-@inject NavigationManager Navigation
+@inject JwtAuthStateProvider AuthProvider
+@inject NavigationManager Nav
 
-<PageTitle>@(profile?.InGameName ?? "Profile")</PageTitle>
+<PageTitle>@(profile?.Username ?? "Profile")</PageTitle>
 
-<MudButton Variant="Variant.Filled"
-           Color="Color.Dark"
-           StartIcon="@Icons.Material.Filled.ArrowBack"
-           OnClick="@(() => Navigation.NavigateTo("/"))"
-           Style="position: fixed; top: 24px; left: 24px; z-index: 100; background: #2a2840; color: #CECBF6; border-radius: 8px;">
-    Back
-</MudButton>
-
-@if (profile is null)
+@if (loading)
 {
-    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; max-width: 860px; padding: 1rem;">
-        <MudSkeleton Animation="Animation.Pulse" Height="140px" Class="mb-3" Style="border-radius: 12px;" />
-        <MudSkeleton Animation="Animation.Pulse" Height="160px" Class="mb-3" Style="border-radius: 12px;" />
+    <div style="max-width: 960px;" class="mx-auto pa-4">
+        <MudSkeleton Animation="Animation.Pulse" Height="180px" Class="mb-4" Style="border-radius: 20px;" />
+        <MudGrid>
+            <MudItem xs="12" md="7">
+                <MudSkeleton Animation="Animation.Pulse" Height="220px" Style="border-radius: 16px;" />
+            </MudItem>
+            <MudItem xs="12" md="5">
+                <MudSkeleton Animation="Animation.Pulse" Height="220px" Style="border-radius: 16px;" />
+            </MudItem>
+        </MudGrid>
+    </div>
+}
+else if (profile is null)
+{
+    <div style="max-width: 960px;" class="mx-auto pa-4">
+        <MudPaper Outlined Style="border-radius: 16px; background: #1e1e2d; border: 1px solid #2a2840; text-align: center;" Class="pa-8">
+            <MudIcon Icon="@Icons.Material.Outlined.PersonOff" Style="color: #4e4b66; font-size: 48px;" Class="mb-2" />
+            <MudText Typo="Typo.h6" Style="color: #CECBF6;">Player not found</MudText>
+            <MudText Typo="Typo.body2" Style="color: #74718e;" Class="mt-1">
+                We couldn't find a profile for "@Username".
+            </MudText>
+        </MudPaper>
     </div>
 }
 else
 {
-    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; max-width: 860px; padding: 1rem;">
+    <div style="max-width: 960px;" class="mx-auto pa-4">
 
-        <MudPaper Outlined Style="border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
-            <div style="padding: 1.5rem; background: #1e1e2d;">
-                <div style="display: flex; align-items: flex-end; gap: 1rem; margin-bottom: 12px;">
-                    <div style="position: relative;">
-                        <MudAvatar Style="width: 72px; height: 72px; border-radius: 10px; background: #534AB7; color: #CECBF6; font-size: 28px; border: 3px solid #1e1e2d;">
-                            @profile.InGameName[0]
+        @* ===================== COVER / IDENTITY BANNER ===================== *@
+        <div class="cover-banner">
+            <div class="cover-glow"></div>
+
+            <div class="banner-content">
+                @* Avatar (read-only — no upload on public profiles) *@
+                <div class="avatar-container avatar-static">
+                    <div class="status-dot" style="@($"background-color: {GetOnlineStatusColor(profile.OnlineStatus)};")" title="@profile.OnlineStatus"></div>
+
+                    @if (!string.IsNullOrWhiteSpace(profile.ProfilePicturePath))
+                    {
+                        <MudAvatar Style="width: 96px; height: 96px; border-radius: 18px; border: 3px solid #1e1e2d; box-shadow: 0 6px 20px rgba(0,0,0,0.35);">
+                            <MudImage Src="@ResolveImageUrl(profile.ProfilePicturePath)" ObjectFit="ObjectFit.Cover" Style="width: 100%; height: 100%;" />
                         </MudAvatar>
-                        @if (profile.IsOnline)
-                        {
-                            <div style="width: 12px; height: 12px; border-radius: 50%; background: #3dcb6c; border: 2px solid #1e1e2d; position: absolute; bottom: 2px; right: 2px;"></div>
-                        }
-                    </div>
-
-                    <div style="padding-bottom: 4px; flex: 1;">
-                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                            <MudText Typo="Typo.h5" Style="color: #CECBF6; margin: 0;">@profile.InGameName</MudText>
-                            @if (profile.IsAdmin)
-                            {
-                                <MudChip T="string" Size="Size.Small" Style="background: #2e1a0d; color: #ffb545; border: 0.5px solid #854F0B;">Admin</MudChip>
-                            }
-                            <MudChip T="string" Size="Size.Small" Style="background: #2a2840; color: #AFA9EC; border: 0.5px solid #534AB7;">@profile.School</MudChip>
-                            <MudChip T="string"
-                                     Size="Size.Small"
-                                     Style="@(profile.IsOnline ? "background:#0d2e1a; color:#3dcb6c;" : "background:#1e1e2d; color:#74718e; border: 0.5px solid #33323e;")"
-                                     Class="ml-auto">
-                                @(profile.IsOnline ? "Online" : "Offline")
-                            </MudChip>
-                        </div>
-                        <MudText Typo="Typo.caption" Style="color: #74718e;">In-game since @profile.MemberSince.ToString("MMM yyyy")</MudText>
-                    </div>
+                    }
+                    else
+                    {
+                        <MudAvatar Style="width: 96px; height: 96px; border-radius: 18px; background: linear-gradient(135deg, #534AB7, #7C6FE0); color: #ECE9FF; font-size: 38px; font-weight: 700; border: 3px solid #1e1e2d; box-shadow: 0 6px 20px rgba(0,0,0,0.35);">
+                            @(!string.IsNullOrEmpty(profile.Username) ? profile.Username[0].ToString().ToUpper() : "?")
+                        </MudAvatar>
+                    }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(profile.Bio))
-                {
-                    <MudText Typo="Typo.body2" Style="color: #92929f; line-height: 1.6; max-width: 500px;">@profile.Bio</MudText>
-                }
+                @* Name + chips *@
+                <div class="identity-block">
+                    <div class="identity-top">
+                        <MudText Typo="Typo.h4" Style="color: #ECE9FF; font-weight: 800; letter-spacing: -0.5px;">@profile.Username</MudText>
 
-                @if (profile.Socials.Any())
-                {
-                    <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-                        @foreach (var social in profile.Socials)
+                        @if (!string.IsNullOrWhiteSpace(profile.School?.Name))
                         {
-                            <MudButton Href="@social.Url" Target="_blank" Variant="Variant.Outlined" Size="Size.Small"
-                                       StartIcon="@Icons.Material.Outlined.Link"
-                                       Style="border-color: #33323e; color: #92929f; font-size: 12px;">
-                                @social.Platform
-                            </MudButton>
+                            <MudChip T="string" Size="Size.Small"
+                                     Style="@($"background: rgba(83, 74, 183, 0.18); color: {profile.School.ColorCode ?? "#AFA9EC"}; border: 1px solid rgba(83, 74, 183, 0.35); font-weight: 600;")">
+                                @profile.School.Name
+                            </MudChip>
                         }
+
+                        <MudChip T="string" Size="Size.Small"
+                                 Style="@($"background: {GetStatusColor(profile.Status)}1A; color: {GetStatusColor(profile.Status)}; border: 1px solid {GetStatusColor(profile.Status)}40; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;")">
+                            @profile.Status
+                        </MudChip>
                     </div>
-                }
+
+                    <MudText Typo="Typo.body1" Style="color: #8d89ab; font-weight: 500;">
+                        @profile.Realname
+                    </MudText>
+
+                    <div class="online-pill">
+                        <span class="online-dot" style="@($"background-color: {GetOnlineStatusColor(profile.OnlineStatus)};")"></span>
+                        <MudText Typo="Typo.caption" Style="color: #8d89ab; font-weight: 600; text-transform: capitalize;">
+                            @(string.IsNullOrWhiteSpace(profile.OnlineStatus) ? "Offline" : profile.OnlineStatus)
+                        </MudText>
+                    </div>
+                </div>
             </div>
-        </MudPaper>
+        </div>
 
-        <MudGrid Spacing="3">
-            <MudItem xs="12" md="8">
-                @if (!string.IsNullOrWhiteSpace(profile.Note) && isAdmin)
-                {
-                    <MudPaper Outlined Class="mb-3" Style="border-radius: 12px; overflow: hidden;">
-                        <div style="padding: 0.875rem 1.25rem; border-bottom: 0.5px solid #33323e;">
-                            <MudText Typo="Typo.overline" Style="color: #74718e;">Admin note</MudText>
-                        </div>
-                        <div style="padding: 1rem 1.25rem;">
-                            <div style="border-left: 3px solid #534AB7; padding-left: 12px; font-size: 13px; color: #74718e; line-height: 1.6;">
-                                @profile.Note
-                            </div>
-                        </div>
-                    </MudPaper>
-                }
+        @* ===================== MAIN GRID ===================== *@
+        <MudGrid Spacing="4" Class="mt-4">
 
-                <MudPaper Outlined Style="border-radius: 12px; overflow: hidden;">
-                    <div style="padding: 0.875rem 1.25rem; border-bottom: 0.5px solid #33323e;">
-                        <MudText Typo="Typo.overline" Style="color: #74718e;">Whitelist history</MudText>
-                    </div>
-                    <div style="padding: 0.5rem 1.25rem;">
-                        @foreach (var entry in profile.WhitelistHistory)
-                        {
-                            <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid #292838;">
-                                <div style="@($"width: 8px; height: 8px; border-radius: 50%; background: {GetStatusColor(entry.Status)}; flex-shrink: 0;")"></div>
-                                <MudText Typo="Typo.body2" Style="color: #b2b0bf; flex: 1;">@entry.Label</MudText>
-                                <MudText Typo="Typo.caption" Style="color: #74718e;">@entry.Date.ToString("MMM d, yyyy")</MudText>
-                                <MudChip T="string"
-                                         Size="Size.Small"
-                                         Style="@($"{GetPillStyle(entry.Status)} font-size: 10px;")">
-                                    @entry.Status
-                                </MudChip>
-                            </div>
-                        }
-                    </div>
+            @* ----- LEFT COLUMN: Bio + Socials ----- *@
+            <MudItem xs="12" md="7">
+
+                @* BIO CARD *@
+                <MudPaper Outlined Style="border-radius: 16px; border: 1px solid #2a2840; background: #1e1e2d;" Class="pa-5 mb-4">
+                    <MudText Typo="Typo.subtitle2" Style="color: #74718e; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;" Class="mb-2">About</MudText>
+
+                    <MudText Typo="Typo.body2" Style="color: #AFA9EC; line-height: 1.6; background: #151522; padding: 14px 18px; border-radius: 12px; border: 1px solid #2a2840;">
+                        @(string.IsNullOrWhiteSpace(profile.Bio) ? "This player hasn't written a bio yet." : profile.Bio)
+                    </MudText>
+                </MudPaper>
+
+                @* SOCIALS CARD *@
+                <MudPaper Outlined Style="border-radius: 16px; background: #1e1e2d; border: 1px solid #2a2840;" Class="pa-5">
+                    <MudText Typo="Typo.subtitle2" Style="color: #74718e; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;" Class="mb-3">Connected Handles</MudText>
+
+                    @if (profile.Socials?.Any() == true)
+                    {
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            @foreach (var social in profile.Socials)
+                            {
+                                <MudButton Href="@social.Link" Target="_blank"
+                                           Variant="Variant.Outlined" Size="Size.Medium"
+                                           StartIcon="@GetSocialIcon(social.SocialName)"
+                                           Style="border-color: #2a2840; background: #151522; color: #CECBF6; border-radius: 10px; text-transform: none; font-size: 13px;">
+                                    @social.SocialName
+                                </MudButton>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="text-align: center; padding: 2.5rem 0; border: 2px dashed #2a2840; border-radius: 12px; background: #151522;">
+                            <MudIcon Icon="@Icons.Material.Outlined.LinkOff" Style="color: #4e4b66; font-size: 40px;" Class="mb-2" />
+                            <MudText Typo="Typo.body2" Style="color: #74718e;">No external links linked to this profile.</MudText>
+                        </div>
+                    }
                 </MudPaper>
             </MudItem>
 
-            <MudItem xs="12" md="4">
-                <MudPaper Outlined Style="border-radius: 12px; overflow: hidden;">
-                    <div style="padding: 0.875rem 1.25rem; border-bottom: 0.5px solid #33323e;">
-                        <MudText Typo="Typo.overline" Style="color: #74718e;">Player info</MudText>
-                    </div>
-                    <div style="padding: 0.5rem 1.25rem;">
-                        @foreach (var row in InfoRows)
-                        {
-                            <div style="display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 0.5px solid #292838;">
-                                <MudText Typo="Typo.caption" Style="color: #74718e;">@row.Key</MudText>
-                                <MudText Typo="Typo.caption" Style="@($"color: {row.Color}; font-weight: 500;")">@row.Value</MudText>
+            @* ----- RIGHT COLUMN: Player info ----- *@
+            <MudItem xs="12" md="5">
+                <MudPaper Outlined Style="border-radius: 16px; background: #1e1e2d; border: 1px solid #2a2840;" Class="pa-5">
+                    <MudText Typo="Typo.subtitle2" Style="color: #74718e; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;" Class="mb-4">Player Info</MudText>
+
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+
+                        <div class="info-row">
+                            <MudText Typo="Typo.body2" Style="color: #74718e;">Real Name</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #CECBF6; font-weight: 600;">@profile.Realname</MudText>
+                        </div>
+
+                        <div class="info-row">
+                            <MudText Typo="Typo.body2" Style="color: #74718e;">School</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #CECBF6; font-weight: 600;">@(profile.School?.Name ?? "Unassigned")</MudText>
+                        </div>
+
+                        <div class="info-row">
+                            <MudText Typo="Typo.body2" Style="color: #74718e;">Whitelist Status</MudText>
+                            <MudText Typo="Typo.body2" Style="@($"color: {GetStatusColor(profile.Status)}; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px;")">
+                                @profile.Status
+                            </MudText>
+                        </div>
+
+                        <div class="info-row">
+                            <MudText Typo="Typo.body2" Style="color: #74718e;">Presence</MudText>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span class="online-dot" style="@($"background-color: {GetOnlineStatusColor(profile.OnlineStatus)};")"></span>
+                                <MudText Typo="Typo.body2" Style="color: #CECBF6; font-weight: 600; text-transform: capitalize;">
+                                    @(string.IsNullOrWhiteSpace(profile.OnlineStatus) ? "Offline" : profile.OnlineStatus)
+                                </MudText>
                             </div>
-                        }
+                        </div>
+
                     </div>
                 </MudPaper>
             </MudItem>
@@ -134,75 +175,188 @@ else
     </div>
 }
 
+<style>
+    /* ---- Cover banner ---- */
+    .cover-banner {
+        position: relative;
+        border-radius: 20px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #2c2750 0%, #1e1e2d 60%);
+        border: 1px solid #2a2840;
+        padding: 28px;
+    }
+
+    .cover-glow {
+        position: absolute;
+        top: -60px;
+        right: -60px;
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle, rgba(124, 111, 224, 0.35), transparent 70%);
+        filter: blur(10px);
+        pointer-events: none;
+    }
+
+    .banner-content {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        z-index: 1;
+    }
+
+    /* ---- Avatar ---- */
+    .avatar-container {
+        position: relative;
+        width: 96px;
+        height: 96px;
+        border-radius: 18px;
+    }
+
+    .avatar-static {
+        cursor: default;
+    }
+
+    .status-dot {
+        position: absolute;
+        bottom: -3px;
+        right: -3px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 3px solid #1e1e2d;
+        z-index: 3;
+    }
+
+    /* ---- Identity block ---- */
+    .identity-block {
+        flex: 1;
+        min-width: 200px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .identity-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .online-pill {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+    }
+
+    .online-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    /* ---- Info rows ---- */
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: #151522;
+        border-radius: 10px;
+        border: 1px solid #2a2840;
+    }
+</style>
+
 @code {
     [Parameter] public string? Username { get; set; }
 
     private PlayerProfileDto? profile;
-    private bool isAdmin = true;
+    private bool loading = true;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        profile = new PlayerProfileDto
-        {
-            InGameName = "Spinelly",
-            Bio = "Just a Minecraft enjoyer from UP. I build things, break things, and occasionally grief my friends (with permission).",
-            Note = "Trustworthy player. Has been a member since Season 1. No prior bans or warnings.",
-            School = "UP Diliman",
-            IsOnline = true,
-            IsAdmin = true,
-            MemberSince = new DateTime(2026, 6, 1),
-            LastSeen = DateTime.Now,
-            WhitelistStatus = "Whitelisted",
-            Socials = [new("Facebook", "https://facebook.com/spinelly")],
-            WhitelistHistory =
-            [
-                new("Season 1 whitelist", new DateTime(2026, 5, 1), "Approved"),
-                new("Season 2 whitelist", new DateTime(2026, 6, 10), "Approved"),
-                new("Season 3 whitelist", new DateTime(2026, 6, 13), "Pending"),
-            ]
-        };
+        await LoadProfile();
     }
 
-    private IEnumerable<(string Key, string Value, string Color)> InfoRows => profile is null ? [] :
-    [
-        ("In-game name", profile.InGameName, "#b2b0bf"),
-        ("School", profile.School, "#b2b0bf"),
-        ("Status", profile.WhitelistStatus, GetStatusColor(profile.WhitelistStatus)),
-        ("Member since", profile.MemberSince.ToString("MMM yyyy"), "#b2b0bf"),
-        ("Last seen", profile.IsOnline ? "Just now" : profile.LastSeen.ToString("MMM d, yyyy"), profile.IsOnline ? "#3dcb6c" : "#74718e"),
-    ];
-
-    private string GetStatusColor(string status) => status switch
+    private async Task LoadProfile()
     {
-        "Approved" or "Whitelisted" => "#3dcb6c",
+        loading = true;
+        profile = null;
+
+        if (string.IsNullOrWhiteSpace(Username))
+        {
+            loading = false;
+            return;
+        }
+
+        try
+        {
+            await AuthProvider.GetAuthenticationStateAsync();
+            profile = await Http.GetFromJsonAsync<PlayerProfileDto>($"/api/v1/players/{Username}");
+        }
+        catch (HttpRequestException)
+        {
+            // 404 from the API surfaces here — leave profile null to show the "not found" state.
+            profile = null;
+        }
+        catch (Exception)
+        {
+            profile = null;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    /// <summary>
+    /// Profile picture paths from the API are relative (e.g. "/images/profiles/xxx.png").
+    /// If the API and the Blazor app are on different origins, a relative path resolves
+    /// against the wrong host. This rebuilds the URL against the HttpClient's base address.
+    /// </summary>
+    private string ResolveImageUrl(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return string.Empty;
+
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return path;
+        }
+
+        var baseAddress = Http.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
+        var relative = path.StartsWith('/') ? path : $"/{path}";
+        return $"{baseAddress}{relative}";
+    }
+
+    private string GetStatusColor(string? status) => status switch
+    {
+        "Whitelisted" or "Accepted" or "Active" => "#3dcb6c",
         "Pending" => "#ffb545",
         "Rejected" or "Banned" => "#ff3f5f",
         _ => "#74718e"
     };
 
-    private string GetPillStyle(string status) => status switch
+    private string GetOnlineStatusColor(string? onlineStatus) => onlineStatus?.ToLower() switch
     {
-        "Approved" or "Whitelisted" => "background: #0d2e1a; color: #3dcb6c;",
-        "Pending" => "background: #33290a; color: #ffb545;",
-        "Rejected" or "Banned" => "background: #2e0d0d; color: #ff3f5f;",
-        _ => ""
+        "online" => "#3dcb6c",
+        "idle" or "away" => "#ffb545",
+        "dnd" or "donotdisturb" => "#ff3f5f",
+        _ => "#74718e"
     };
 
-    class PlayerProfileDto
+    private string GetSocialIcon(string? socialName) => socialName?.ToLower() switch
     {
-        public string InGameName { get; init; } = "";
-        public string? Bio { get; init; }
-        public string Note { get; init; } = "";
-        public string School { get; init; } = "";
-        public bool IsOnline { get; init; }
-        public bool IsAdmin { get; init; }
-        public DateTime MemberSince { get; init; }
-        public DateTime LastSeen { get; init; }
-        public string WhitelistStatus { get; init; } = "";
-        public List<SocialDto> Socials { get; init; } = [];
-        public List<WhitelistHistoryEntry> WhitelistHistory { get; init; } = [];
-    }
-
-    record SocialDto(string Platform, string Url);
-    record WhitelistHistoryEntry(string Label, DateTime Date, string Status);
+        "facebook" => Icons.Custom.Brands.Facebook,
+        "discord" => Icons.Custom.Brands.Discord,
+        "twitter" or "x" => Icons.Custom.Brands.Twitter,
+        "instagram" => Icons.Custom.Brands.Instagram,
+        "youtube" => Icons.Custom.Brands.YouTube,
+        "tiktok" => Icons.Custom.Brands.TikTok,
+        _ => Icons.Material.Outlined.Link
+    };
 }

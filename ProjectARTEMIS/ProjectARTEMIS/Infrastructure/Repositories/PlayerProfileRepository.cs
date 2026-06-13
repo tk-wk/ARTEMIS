@@ -1,4 +1,5 @@
-﻿using ProjectARTEMIS.Infrastructure.Persistence;
+﻿using Microsoft.EntityFrameworkCore;
+using ProjectARTEMIS.Infrastructure.Persistence;
 
 public interface IPlayerProfileRepository : IRepository<PlayerProfile>
 {
@@ -10,5 +11,9 @@ public class PlayerProfileRepository : Repository<PlayerProfile>, IPlayerProfile
     public PlayerProfileRepository(MyDbContext context) : base(context)
     {
     }
-    public async Task<PlayerProfile?> GetByUserId(Guid userId) => _set.FirstOrDefault(x => x.UserId == userId);
+    public async Task<PlayerProfile?> GetByUserId(Guid userId) => _set
+        .Include(x=>x.OnlineStatuses)
+        .Include(x=>x.ProfileStatuses)
+        .Include(x=>x.LinkedSocials)
+        .FirstOrDefault(x => x.UserId == userId);
 }

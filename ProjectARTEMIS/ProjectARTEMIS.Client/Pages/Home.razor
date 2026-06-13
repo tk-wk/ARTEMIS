@@ -1,33 +1,41 @@
 ﻿@page "/"
 @inject HttpClient Http
-@inject AuthenticationStateProvider AuthProvider
+@inject IJSRuntime JS
+@implements IDisposable
+@inject JwtAuthStateProvider AuthProvider
 
 <PageTitle>Dashboard</PageTitle>
 
-<MudGrid Spacing="3" Class="pt-4">
-
+<MudGrid Spacing="3">
     <MudItem xs="12" md="6">
         <MudPaper Outlined Class="pa-4" Style="border-radius: 12px;">
             <MudText Typo="Typo.overline" Style="color: #74718e;">Whitelist status</MudText>
 
-            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
-                <MudAvatar Style="@($"background: {StatusBackground}; color: {StatusColor}; border-radius: 10px;")" Size="Size.Large">
-                    <MudIcon Icon="@StatusIcon" />
-                </MudAvatar>
-                <div>
-                    <MudText Typo="Typo.h6" Style="@($"color: {StatusColor}; margin: 0;")">@StatusLabel</MudText>
-                    <MudText Typo="Typo.caption" Style="color: #74718e;">@StatusDescription</MudText>
+            @if (dashboard is null)
+            {
+                <MudSkeleton Height="80px" Class="mt-2" />
+            }
+            else
+            {
+                <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                    <MudAvatar Style="@($"background: {StatusBackground}; color: {StatusColor}; border-radius: 10px;")" Size="Size.Large">
+                        <MudIcon Icon="@StatusIcon" />
+                    </MudAvatar>
+                    <div>
+                        <MudText Typo="Typo.h6" Style="@($"color: {StatusColor}; margin: 0;")">@StatusLabel</MudText>
+                        <MudText Typo="Typo.caption" Style="color: #74718e;">@StatusDescription</MudText>
+                    </div>
                 </div>
-            </div>
 
-            <MudPaper Outlined Class="pa-3 mt-3" Style="background: #151521; border-radius: 8px; display: flex; align-items: center; gap: 8px;">
-                <MudIcon Icon="@Icons.Material.Outlined.Dns" Style="color: #74718e; font-size: 18px;" />
-                <MudText Typo="Typo.body2" Style="font-family: monospace; flex: 1; color: #b2b0bf;">@serverIp</MudText>
-                <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy"
-                               Size="Size.Small"
-                               Style="color: #7e6fff;"
-                               OnClick="CopyIp" />
-            </MudPaper>
+                <MudPaper Outlined Class="pa-3 mt-3" Style="background: #151521; border-radius: 8px; display: flex; align-items: center; gap: 8px;">
+                    <MudIcon Icon="@Icons.Material.Outlined.Dns" Style="color: #74718e; font-size: 18px;" />
+                    <MudText Typo="Typo.body2" Style="font-family: monospace; flex: 1; color: #b2b0bf;">play.artemissmp.net</MudText>
+                    <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy"
+                                   Size="Size.Small"
+                                   Style="color: #7e6fff;"
+                                   OnClick="CopyIp" />
+                </MudPaper>
+            }
         </MudPaper>
     </MudItem>
 
@@ -37,7 +45,7 @@
 
             @if (serverStatus is null)
             {
-                <MudSkeleton Height="80px" />
+                <MudSkeleton Height="80px" Class="mt-2" />
             }
             else
             {
@@ -53,7 +61,7 @@
                     <MudItem xs="4">
                         <MudPaper Outlined Class="pa-3" Style="background: #151521; text-align: center; border-radius: 8px;">
                             <MudText Typo="Typo.h5" Style="color: #3dcb6c;">@serverStatus.OnlinePlayers</MudText>
-                            <MudText Typo="Typo.caption" Style="color: #74718e;">Online now</MudText>
+                            <MudText Typo="Typo.caption" Style="color: #74718e;">Online</MudText>
                         </MudPaper>
                     </MudItem>
                     <MudItem xs="4">
@@ -78,54 +86,65 @@
     </MudItem>
 
     <MudItem xs="12">
-        <MudPaper Outlined Style="border-radius: 12px; overflow: hidden;">
-            <div style="padding: 1rem 1.25rem; border-bottom: 0.5px solid #33323e; display: flex; align-items: center; justify-content: space-between;">
-                <MudText Typo="Typo.subtitle2">My whitelist requests</MudText>
-                <MudButton Variant="Variant.Text" Size="Size.Small" Href="/my-requests" Style="color: #7e6fff;">
-                    View all
-                </MudButton>
-            </div>
+        <MudPaper Outlined Class="pa-5" Style="border-radius: 12px; background: linear-gradient(135deg, #1a1a27 0%, #2a2840 100%); border-color: #534AB7; text-align: center;">
+            <MudText Typo="Typo.overline" Style="color: #AFA9EC; letter-spacing: 0.1em;">🗓 Season 1 Launch</MudText>
+            <MudText Typo="Typo.caption" Style="color: #74718e; display: block; margin-bottom: 1.5rem;">
+                July 15, 2026 — The server opens its doors
+            </MudText>
 
-            @if (myRequests is null)
-            {
-                <MudSkeleton Height="120px" />
-            }
-            else if (!myRequests.Any())
-            {
-                <div style="padding: 2rem; text-align: center;">
-                    <MudText Typo="Typo.body2" Style="color: #74718e;">No requests yet.</MudText>
-                </div>
-            }
-            else
-            {
-                @foreach (var req in myRequests.Take(3))
-                {
-                    <div style="display: flex; align-items: center; padding: 0.875rem 1.25rem; border-bottom: 0.5px solid #292838; gap: 12px;">
-                        <MudAvatar Style="background: #2a2840; color: #7e6fff; border-radius: 8px;" Size="Size.Small">
-                            <MudIcon Icon="@Icons.Material.Outlined.ListAlt" Size="Size.Small" />
-                        </MudAvatar>
-                        <div style="flex: 1;">
-                            <MudText Typo="Typo.body2" Style="color: #b2b0bf;">@req.Label</MudText>
-                            <MudText Typo="Typo.caption" Style="color: #74718e;">Submitted @req.SubmittedAt.ToString("MMM d, yyyy")</MudText>
-                        </div>
-                        <MudChip T="string" Size="Size.Small" Style="@GetPillStyle(req.Status)">@req.Status</MudChip>
-                    </div>
-                }
-            }
+            <MudGrid Justify="Justify.Center" Spacing="2">
+                <MudItem xs="3" sm="2">
+                    <MudPaper Outlined Class="pa-3" Style="background: #1e1e2d; border-radius: 10px; border-color: #33323e;">
+                        <MudText Style="font-size: 2rem; font-weight: 500; color: #CECBF6; line-height: 1; font-variant-numeric: tabular-nums;">
+                            @days.ToString("D2")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="color: #74718e; text-transform: uppercase; letter-spacing: 0.08em;">Days</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="3" sm="2">
+                    <MudPaper Outlined Class="pa-3" Style="background: #1e1e2d; border-radius: 10px; border-color: #33323e;">
+                        <MudText Style="font-size: 2rem; font-weight: 500; color: #CECBF6; line-height: 1; font-variant-numeric: tabular-nums;">
+                            @hours.ToString("D2")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="color: #74718e; text-transform: uppercase; letter-spacing: 0.08em;">Hours</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="3" sm="2">
+                    <MudPaper Outlined Class="pa-3" Style="background: #1e1e2d; border-radius: 10px; border-color: #33323e;">
+                        <MudText Style="font-size: 2rem; font-weight: 500; color: #CECBF6; line-height: 1; font-variant-numeric: tabular-nums;">
+                            @minutes.ToString("D2")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="color: #74718e; text-transform: uppercase; letter-spacing: 0.08em;">Minutes</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="3" sm="2">
+                    <MudPaper Outlined Class="pa-3" Style="background: #1e1e2d; border-radius: 10px; border-color: #33323e;">
+                        <MudText Style="font-size: 2rem; font-weight: 500; color: #CECBF6; line-height: 1; font-variant-numeric: tabular-nums;">
+                            @seconds.ToString("D2")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="color: #74718e; text-transform: uppercase; letter-spacing: 0.08em;">Seconds</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
         </MudPaper>
     </MudItem>
-
 </MudGrid>
 
 @code {
-    private string serverIp = "play.artemissmp.net";
+    private DashboardDto? dashboard;
     private ServerStatusDto? serverStatus;
-    private List<WhitelistRequestSummary>? myRequests;
-    private WhitelistStatus userStatus = WhitelistStatus.Whitelisted; // mock
+    private Timer? _timer;
+
+    private static readonly DateTime LaunchDate = new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc);
+    private int days, hours, minutes, seconds;
 
     protected override async Task OnInitializedAsync()
     {
-        // Mock server status — replace with real mcsrvstat.us call later
+        await AuthProvider.GetAuthenticationStateAsync();
+
+        dashboard = await Http.GetFromJsonAsync<DashboardDto>("/api/v1/dashboard");
+
+        // Mock server status — replace with mcsrvstat.us call
         serverStatus = new ServerStatusDto
         {
             Online = true,
@@ -135,70 +154,73 @@
             Latency = 24,
             Motd = "A Minecraft Server"
         };
-
-        // Mock requests — replace with real API call later
-        myRequests =
-        [
-            new("Initial whitelist request", DateTime.Now.AddDays(-3), "Approved"),
-            new("Re-application after ban appeal", DateTime.Now.AddDays(-1), "Pending"),
-            new("Season 2 whitelist", DateTime.Now.AddDays(-43), "Rejected"),
-        ];
     }
 
-    private async Task CopyIp()
+    protected override void OnAfterRender(bool firstRender)
     {
-        // requires IJSRuntime — wire up later
+        if (firstRender)
+        {
+            _timer = new Timer(_ =>
+            {
+                var diff = LaunchDate - DateTime.UtcNow;
+                if (diff <= TimeSpan.Zero) diff = TimeSpan.Zero;
+
+                days = (int)diff.TotalDays;
+                hours = diff.Hours;
+                minutes = diff.Minutes;
+                seconds = diff.Seconds;
+
+                InvokeAsync(StateHasChanged);
+            }, null, 0, 1000);
+        }
     }
 
-    private string StatusLabel => userStatus switch
+    public void Dispose() => _timer?.Dispose();
+
+    private async Task CopyIp() =>
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", "play.artemissmp.net");
+
+    private string StatusLabel => dashboard?.Status switch
     {
-        WhitelistStatus.Whitelisted => "Whitelisted",
-        WhitelistStatus.Pending => "Pending review",
-        WhitelistStatus.Banned => "Banned",
-        _ => "Not whitelisted"
+        "Accepted" => "Whitelisted",
+        "Pending" => "Pending review",
+        "Rejected" => "Rejected",
+        _ => "Unknown"
     };
 
-    private string StatusDescription => userStatus switch
+    private string StatusDescription => dashboard?.Status switch
     {
-        WhitelistStatus.Whitelisted => "You have access to the server",
-        WhitelistStatus.Pending => "Your request is being reviewed",
-        WhitelistStatus.Banned => "You have been banned from the server",
-        _ => "Submit a request to join"
-    };
-
-    private string StatusColor => userStatus switch
-    {
-        WhitelistStatus.Whitelisted => "#3dcb6c",
-        WhitelistStatus.Pending => "#ffb545",
-        WhitelistStatus.Banned => "#ff3f5f",
-        _ => "#74718e"
-    };
-
-    private string StatusBackground => userStatus switch
-    {
-        WhitelistStatus.Whitelisted => "#0d2e1a",
-        WhitelistStatus.Pending => "#33290a",
-        WhitelistStatus.Banned => "#2e0d0d",
-        _ => "#1e1e2d"
-    };
-
-    private string StatusIcon => userStatus switch
-    {
-        WhitelistStatus.Whitelisted => Icons.Material.Outlined.VerifiedUser,
-        WhitelistStatus.Pending => Icons.Material.Outlined.HourglassTop,
-        WhitelistStatus.Banned => Icons.Material.Outlined.Block,
-        _ => Icons.Material.Outlined.PersonOff
-    };
-
-    private string GetPillStyle(string status) => status switch
-    {
-        "Approved" => "background: #0d2e1a; color: #3dcb6c;",
-        "Pending"  => "background: #33290a; color: #ffb545;",
-        "Rejected" => "background: #2e0d0d; color: #ff3f5f;",
+        "Accepted" => "You have access to the server",
+        "Pending" => "Your request is being reviewed",
+        "Rejected" => "Your application was rejected",
         _ => ""
     };
 
-    // DTOs
+    private string StatusColor => dashboard?.Status switch
+    {
+        "Accepted" => "#3dcb6c",
+        "Pending" => "#ffb545",
+        "Rejected" => "#ff3f5f",
+        _ => "#74718e"
+    };
+
+    private string StatusBackground => dashboard?.Status switch
+    {
+        "Accepted" => "#0d2e1a",
+        "Pending" => "#33290a",
+        "Rejected" => "#2e0d0d",
+        _ => "#1e1e2d"
+    };
+
+    private string StatusIcon => dashboard?.Status switch
+    {
+        "Accepted" => Icons.Material.Outlined.VerifiedUser,
+        "Pending" => Icons.Material.Outlined.HourglassTop,
+        "Rejected" => Icons.Material.Outlined.Block,
+        _ => Icons.Material.Outlined.PersonOff
+    };
+
+
     record ServerStatusDto
     {
         public bool Online { get; init; }
@@ -208,8 +230,4 @@
         public int Latency { get; init; }
         public string Motd { get; init; } = "";
     }
-
-    record WhitelistRequestSummary(string Label, DateTime SubmittedAt, string Status);
-
-    enum WhitelistStatus { Whitelisted, Pending, Banned, None }
 }

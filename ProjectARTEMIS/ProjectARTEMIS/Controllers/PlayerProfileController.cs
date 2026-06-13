@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using SixLabors.ImageSharp;
 using System.Security.Claims;
+using SkiaSharp;
 
 namespace YourProjectNamespace.Controllers
 {
@@ -36,15 +38,18 @@ namespace YourProjectNamespace.Controllers
         [HttpPut("details")]
         public async Task<IActionResult> UpdateDetails([FromBody] UpdatePlayerProfileRequest request)
         {
-            if (!UserOwnsProfile(request.Id))
-            {
-                return Forbid(); 
-            }
+            var nameIdentifierClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(nameIdentifierClaim) || !Guid.TryParse(nameIdentifierClaim, out var authenticatedUserId))
+                return Forbid();
 
             try
             {
                 await _profileService.UpdateProfileDetails(request);
                 return Ok(new { Message = "Profile details updated successfully." });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
             }
             catch (KeyNotFoundException ex)
             {
@@ -52,49 +57,65 @@ namespace YourProjectNamespace.Controllers
             }
         }
 
+
         [HttpPost("upload-picture")]
         public async Task<IActionResult> UploadProfilePicture([FromForm] UploadProfilePictureForm form)
         {
-            // 👈 Ownership Check
-            if (!UserOwnsProfile(form.Id))
-            {
-                return Forbid(); // Returns HTTP 403 Forbidden
-            }
+            var nameIdentifierClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(nameIdentifierClaim) || !Guid.TryParse(nameIdentifierClaim, out var authenticatedUserId))
+                return Forbid();
 
             if (form.ProfilePicture == null || form.ProfilePicture.Length == 0)
-            {
                 return BadRequest(new { Message = "No file stream was provided." });
-            }
 
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-            var extension = Path.GetExtension(form.ProfilePicture.FileName).ToLowerInvariant();
-
-            if (!allowedExtensions.Contains(extension))
-            {
-                return BadRequest(new { Message = "Invalid image extension." });
-            }
+            const long maxBytes = 8 * 1024 * 1024;
+            if (form.ProfilePicture.Length > maxBytes)
+                return BadRequest(new { Message = "Image is too large (max 8 MB)." });
 
             try
             {
                 var folderName = Path.Combine(_environment.WebRootPath, "images", "profiles");
                 if (!Directory.Exists(folderName)) Directory.CreateDirectory(folderName);
 
-                var uniqueFileName = $"{form.Id}_{DateTime.UtcNow.Ticks}{extension}";
+                var uniqueFileName = $"{authenticatedUserId}_{DateTime.UtcNow.Ticks}.jpg";
                 var targetDiskPath = Path.Combine(folderName, uniqueFileName);
 
-                using (var stream = new FileStream(targetDiskPath, FileMode.Create))
+                using var stream = form.ProfilePicture.OpenReadStream();
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                ms.Position = 0;
+
+                using var original = SKBitmap.Decode(ms);
+                if (original == null)
+                    return BadRequest(new { Message = "That file doesn't appear to be a valid image." });
+
+                const int size = 512;
+                var cropSize = Math.Min(original.Width, original.Height);
+                var cropX = (original.Width - cropSize) / 2;
+                var cropY = (original.Height - cropSize) / 2;
+
+                using var cropped = new SKBitmap(cropSize, cropSize);
+                using (var canvas = new SKCanvas(cropped))
                 {
-                    await form.ProfilePicture.CopyToAsync(stream);
+                    canvas.DrawBitmap(original,
+                        SKRect.Create(cropX, cropY, cropSize, cropSize),
+                        SKRect.Create(0, 0, cropSize, cropSize));
                 }
 
-                var webRoutePath = $"/images/profiles/{uniqueFileName}";
-                var serviceRequest = new UploadNewProfilePictureRequest
-                {
-                    Id = form.Id,
-                    ProfilePicturePath = webRoutePath
-                };
+                using var resized = cropped.Resize(new SKImageInfo(size, size), SKSamplingOptions.Default);
+                if (resized == null)
+                    return BadRequest(new { Message = "Could not process this image." });
 
-                await _profileService.UpdateProfilePicture(serviceRequest);
+                using var image = SKImage.FromBitmap(resized);
+                using var data = image.Encode(SKEncodedImageFormat.Jpeg, 85);
+
+                await using var fileStream = new FileStream(targetDiskPath, FileMode.Create);
+                data.SaveTo(fileStream);
+
+                var webRoutePath = $"/images/profiles/{uniqueFileName}";
+
+                // Pass UserId — service does the profile lookup itself
+                await _profileService.UpdateProfilePicture(authenticatedUserId, webRoutePath);
 
                 return Ok(new { Message = "Profile picture updated successfully.", Path = webRoutePath });
             }
@@ -103,61 +124,11 @@ namespace YourProjectNamespace.Controllers
                 return NotFound(new { Message = ex.Message });
             }
         }
-
-        private bool UserOwnsProfile(Guid targetId)
-        {
-            var nameIdentifierClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (string.IsNullOrEmpty(nameIdentifierClaim) || !Guid.TryParse(nameIdentifierClaim, out var authenticatedUserId))
-            {
-                return false;
-            }
-
-            return authenticatedUserId == targetId;
-        }
     }
 }
 
 public record UploadProfilePictureForm
 {
-    [FromForm(Name = "id")]
-    public Guid Id { get; set; }
-
     [FromForm(Name = "profilePicture")]
     public IFormFile ProfilePicture { get; set; } = null!;
-}
-
-public record UpdatePlayerProfileRequest
-{
-    public Guid Id { get; set; }
-    public string Bio { get; set; }
-}
-public record UploadNewProfilePictureRequest
-{
-    public Guid Id { get; set; }
-    public string ProfilePicturePath { get; set; } = string.Empty;
-}
-
-public record PlayerProfileDto
-{
-    public Guid Id { get; set; }
-    public string Username { get; set; }
-    public SchoolDto School { get; set; }
-    public string Bio { get; set; }
-    public string Status { get; set; } // banned, whitelisted, etc
-    public string OnlineStatus { get; set; } // online or offline
-    public List<SocialDto> Socials { get; set; }
-    public string ProfilePicturePath { get; set; } = string.Empty;
-}
-
-public record SocialDto
-{
-    public string SocialName { get; set; }
-    public string Link { get; set; }
-}
-public record SchoolDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string ColorCode { get; set; } = string.Empty;
 }

@@ -25,12 +25,24 @@ public sealed class UnitOfWork : IUnitOfWork
     public IUserRepository Users => _users ??= new UserRepository(_context);
     public ISchoolRepository Schools => _schools ??= new SchoolRepository(_context);
     public IPlayerProfileRepository PlayerProfiles => _playerProfiles ??= new PlayerProfileRepository(_context);
-    public IWhitelistRequestRepository WhitelistRequests => _whitelistRequests ??= new RegistrationRequestRepository(_context);
+    public IWhitelistRequestRepository WhitelistRequests => _whitelistRequests ??= new WhitelistRequestRepository(_context);
     public ISocialMediaRepository SocialMedia => _socialMedia ??= new SocialMediaRepository(_context);
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-        => await _context.SaveChangesAsync(cancellationToken);
+    {
+        var entries = _context.ChangeTracker.Entries()
+    .Where(e => e.State != EntityState.Unchanged)
+    .ToList();
 
+        foreach (var entry in entries)
+        {
+            Console.WriteLine($"[EF] {entry.State} - {entry.Entity.GetType().Name} - {entry.CurrentValues["Id"]}");
+            foreach (var prop in entry.Properties)
+                Console.WriteLine($"     {prop.Metadata.Name}: {prop.OriginalValue} → {prop.CurrentValue}");
+        }
+
+        return await _context.SaveChangesAsync(cancellationToken);
+    }
     public async Task BeginTransactionAsync(IsolationLevel isolationLevel)
     {
         if (_transaction is not null)

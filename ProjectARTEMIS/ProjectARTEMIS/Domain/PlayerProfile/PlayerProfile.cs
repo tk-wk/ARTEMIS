@@ -6,7 +6,7 @@
         public Guid Id { get; private set; }
         public Guid UserId { get; private set; }
         public Guid SchoolId { get; private set; }
-        public string InGameName { get; private set; } = string.Empty;
+        public string RealName { get; private set; } = string.Empty;
         public string? Bio { get; private set; }
         public string Note { get; private set; } = string.Empty;
         public string ProfilePicturePath { get; private set; } = string.Empty;
@@ -14,8 +14,8 @@
         private readonly List<PlayerProfileStatus> _profileStatuses = new();
 
         private readonly List<PlayerOnlineStatus> _onlineStatuses = new();
-        private readonly List<SocialMediaHandle> _socials = new();
-        public IReadOnlyCollection<SocialMediaHandle> LinkedSocials => _socials.AsReadOnly();
+        private readonly List<SocialMediaHandle> _linkedSocials = new();
+        public IReadOnlyCollection<SocialMediaHandle> LinkedSocials => _linkedSocials.AsReadOnly();
         public IReadOnlyCollection<PlayerProfileStatus> ProfileStatuses => _profileStatuses.AsReadOnly();
         public IReadOnlyCollection<PlayerOnlineStatus> OnlineStatuses => _onlineStatuses.AsReadOnly();
     public PlayerProfileStatus? CurrentProfileStatus =>
@@ -25,18 +25,18 @@
 
     private PlayerProfile() { }
 
-        public static PlayerProfile Create(Guid userId, Guid schoolId, string inGameName, string? bio = null)
+        public static PlayerProfile Create(Guid userId, Guid schoolId, string realName, string? bio = null)
         {
             if (userId == Guid.Empty) throw new DomainException("User ID cannot be empty.");
             if (schoolId == Guid.Empty) throw new DomainException("School ID cannot be empty.");
-            if (string.IsNullOrWhiteSpace(inGameName)) throw new DomainException("In-game name is required.");
+            if (string.IsNullOrWhiteSpace(realName)) throw new DomainException("In-game name is required.");
 
             var profile = new PlayerProfile
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 SchoolId = schoolId,
-                InGameName = inGameName.Trim(),
+                RealName = realName.Trim(),
                 Bio = bio?.Trim(),
             };
 
@@ -48,21 +48,21 @@
 
         public void AddSocialLink(Guid socialMediaId, string link)
         {
-            var currentSocial = _socials.FirstOrDefault(x => x.SocialMediaId == socialMediaId);
+            var currentSocial = _linkedSocials.FirstOrDefault(x => x.SocialMediaId == socialMediaId);
             if(currentSocial == null)
             {
                 var social = SocialMediaHandle.Create(Id, socialMediaId, link);
-                _socials.Add(social);
+                _linkedSocials.Add(social);
                 return;
             }
             currentSocial.UpdateLink(link);
         }
         public void DeleteSocial(Guid socialMediaId)
         {
-            var currentSocial = _socials.FirstOrDefault(x => x.SocialMediaId == socialMediaId);
+            var currentSocial = _linkedSocials.FirstOrDefault(x => x.SocialMediaId == socialMediaId);
             if (currentSocial == null) throw new DomainException("Not found!");
 
-            _socials.Remove(currentSocial);
+            _linkedSocials.Remove(currentSocial);
         }
 
         private void InitializeDefaultStatuses()
@@ -138,11 +138,7 @@
 
         public void UpdateProfile(string newIgn, string? newBio)
         {
-            if (GetCurrentProfileStatus().Status == PlayerStatusType.Banned)
-            {
-                throw new DomainException("Cannot update profile details because this player is banned.");
-            }
-            InGameName = newIgn.Trim();
+            RealName = newIgn.Trim();
             Bio = newBio?.Trim();
         }
     }

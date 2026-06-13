@@ -30,9 +30,10 @@ public class PlayerProfileService
                 ColorCode = school.ColorCode
             },
             Bio = playerProfile.Bio,
-            Status = playerProfile.CurrentProfileStatus?.Status.ToString() ?? "Unknown",
-            OnlineStatus = playerProfile.CurrentOnlineStatus?.Status.ToString() ?? "Offline",
-
+            Status = playerProfile.CurrentProfileStatus?.Status.ToString() ?? "Null",
+            OnlineStatus = playerProfile.CurrentOnlineStatus?.Status.ToString() ?? "Null",
+            ProfilePicturePath = playerProfile.ProfilePicturePath,
+            Realname = playerProfile.RealName,
             Socials = playerProfile.LinkedSocials.Select(x => new SocialDto
             {
                 SocialName = socialPlatformDict.TryGetValue(x.SocialMediaId, out var platform)
@@ -50,42 +51,34 @@ public class PlayerProfileService
         {
             throw new KeyNotFoundException($"Player profile with ID {req.Id} not found.");
         }
-        playerProfile.UpdateProfile(playerProfile.InGameName, req.Bio);
+        playerProfile.UpdateProfile(playerProfile.RealName, req.Bio);
         _uow.PlayerProfiles.Update(playerProfile);
         await _uow.SaveChangesAsync();
     }
 
-    public async Task UpdateProfilePicture(UploadNewProfilePictureRequest req)
+    public async Task UpdateProfilePicture(Guid userId, string newPicturePath)
     {
-        var playerProfile = await _uow.PlayerProfiles.GetById(req.Id);
+        // Look up by UserId, not PlayerProfile.Id
+        var playerProfile = await _uow.PlayerProfiles.GetByUserId(userId);
         if (playerProfile == null)
-        {
-            throw new KeyNotFoundException($"Player profile with ID {req.Id} not found.");
-        }
+            throw new KeyNotFoundException("Player profile not found.");
 
         var oldPicturePath = playerProfile.ProfilePicturePath;
 
-        playerProfile.ChangeProfilePicture(req.ProfilePicturePath);
-
+        playerProfile.ChangeProfilePicture(newPicturePath);
         await _uow.SaveChangesAsync();
 
-        if (!string.IsNullOrWhiteSpace(oldPicturePath) && oldPicturePath != req.ProfilePicturePath)
+        if (!string.IsNullOrWhiteSpace(oldPicturePath) && oldPicturePath != newPicturePath)
         {
             try
             {
                 var absoluteOldPath = Path.Combine(_environment.WebRootPath, oldPicturePath.TrimStart('/'));
-
                 if (File.Exists(absoluteOldPath))
-                {
                     File.Delete(absoluteOldPath);
-                }
             }
-            catch (IOException)
-            {
-
-            }
+            catch (IOException) { }
         }
     }
 
-    }
+}
 

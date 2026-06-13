@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ProjectARTEMIS.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using ProjectARTEMIS.Infrastructure.Persistence;
 namespace ProjectARTEMIS.Migrations
 {
     [DbContext(typeof(MyDbContext))]
-    partial class MyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260613154115_FixSomeFields")]
+    partial class FixSomeFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -45,15 +48,6 @@ namespace ProjectARTEMIS.Migrations
                     b.HasIndex("PlayerProfileId");
 
                     b.ToTable("PlayerOnlineStatuses");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("d4487f4a-1bb6-72fa-bd04-9f5639fb04af"),
-                            PlayerProfileId = new Guid("b2265d2e-9ff4-50ed-9b82-7d3417e9828d"),
-                            StartTime = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Status = 1
-                        });
                 });
 
             modelBuilder.Entity("PlayerProfile", b =>
@@ -65,15 +59,15 @@ namespace ProjectARTEMIS.Migrations
                     b.Property<string>("Bio")
                         .HasColumnType("text");
 
+                    b.Property<string>("InGameName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Note")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ProfilePicturePath")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("RealName")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -86,18 +80,6 @@ namespace ProjectARTEMIS.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("PlayerProfiles");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("b2265d2e-9ff4-50ed-9b82-7d3417e9828d"),
-                            Bio = "Project ARTEMIS Head System Administrator.",
-                            Note = "",
-                            ProfilePicturePath = "",
-                            RealName = "Alex Sam Cabildo",
-                            SchoolId = new Guid("44444444-4444-4444-4444-444444444444"),
-                            UserId = new Guid("a1154c1d-8ee3-49dc-8a71-6c2306d8717c")
-                        });
                 });
 
             modelBuilder.Entity("PlayerProfileStatus", b =>
@@ -127,16 +109,6 @@ namespace ProjectARTEMIS.Migrations
                     b.HasIndex("PlayerProfileId");
 
                     b.ToTable("PlayerProfileStatuses");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("c3376e3f-0aa5-61fe-ac93-8e4528fa939e"),
-                            Message = "Profile initialized.",
-                            PlayerProfileId = new Guid("b2265d2e-9ff4-50ed-9b82-7d3417e9828d"),
-                            StartTime = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Status = 0
-                        });
                 });
 
             modelBuilder.Entity("School", b =>
@@ -212,33 +184,6 @@ namespace ProjectARTEMIS.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("SocialMedias");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("f1198a5b-2cc7-83fa-cd05-8f674afb05bf"),
-                            Name = "Facebook"
-                        },
-                        new
-                        {
-                            Id = new Guid("f22a9b6c-3dd8-94fa-de06-9f785b0c16cf"),
-                            Name = "X (Twitter)"
-                        },
-                        new
-                        {
-                            Id = new Guid("f33bc77d-4ee9-05fa-ef07-af896c1d27df"),
-                            Name = "Discord"
-                        },
-                        new
-                        {
-                            Id = new Guid("f44cd88e-5ff0-16fa-f008-bf9a7d2e38ef"),
-                            Name = "Instagram"
-                        },
-                        new
-                        {
-                            Id = new Guid("f55de99f-6fa1-27fa-f109-cfab8e3f49ff"),
-                            Name = "TikTok"
-                        });
                 });
 
             modelBuilder.Entity("SocialMediaHandle", b =>
@@ -287,15 +232,6 @@ namespace ProjectARTEMIS.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Users");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("a1154c1d-8ee3-49dc-8a71-6c2306d8717c"),
-                            IsAdmin = true,
-                            PasswordHash = "$2a$11$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
-                            Username = "Spinelly"
-                        });
                 });
 
             modelBuilder.Entity("WhitelistRequest", b =>
@@ -330,6 +266,7 @@ namespace ProjectARTEMIS.Migrations
             modelBuilder.Entity("WhitelistRequestStatus", b =>
                 {
                     b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("EndTime")

@@ -11,13 +11,13 @@ public class Repository<T> : IRepository<T> where T : class
         _set = context.Set<T>();
     }
 
-    public void Add(T entity) => _set.Add(entity);
+    public virtual void Add(T entity) => _set.Add(entity);
 
-    public void Delete(T entity) => _set.Remove(entity);
+    public virtual void Delete(T entity) => _set.Remove(entity);
 
-    public IQueryable<T> GetAll() => _set.AsQueryable();
+    public virtual IQueryable<T> GetAll() => _set.AsQueryable();
 
-    public async Task<T?> GetById(Guid id) => await _set.FindAsync(id);
+    public virtual async Task<T?> GetById(Guid id) => await _set.FindAsync(id);
 
-    public void Update(T entity) => _set.Update(entity);
+    public virtual void Update(T entity) => _set.Update(entity);
 }

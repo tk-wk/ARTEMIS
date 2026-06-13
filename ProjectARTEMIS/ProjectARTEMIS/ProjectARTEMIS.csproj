@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="4.0.0" />
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />
     <ProjectReference Include="..\ProjectARTEMIS.Client\ProjectARTEMIS.Client.csproj" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
